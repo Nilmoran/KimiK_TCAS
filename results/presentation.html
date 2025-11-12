@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интеграция TCAS в систему КОИ - Результаты исследования</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --text-dark: #2c3e50;
+            --text-light: #7f8c8d;
+            --bg-light: #f8f9fa;
+            --bg-white: #ffffff;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-white);
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .nav {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav a {
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav a:hover {
+            color: var(--secondary-color);
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 4rem 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* Main Content */
+        .main {
+            padding: 4rem 0;
+        }
+
+        .section {
+            margin-bottom: 4rem;
+            background: var(--bg-white);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .section-title i {
+            color: var(--secondary-color);
+        }
+
+        /* Charts */
+        .chart-container {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: var(--bg-light);
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        /* Comparison Table */
+        .comparison-table {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+
+        .comparison-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-white);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .comparison-table th {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .comparison-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .comparison-table tr:hover {
+            background: var(--bg-light);
+        }
+
+        /* Key Findings */
+        .findings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .finding-card {
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            transition: transform 0.3s ease;
+        }
+
+        .finding-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .finding-card i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
+
+        .finding-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Methodology */
+        .methodology {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .method-card {
+            background: var(--bg-white);
+            border: 2px solid var(--secondary-color);
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .method-card:hover {
+            background: var(--secondary-color);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .method-card i {
+            font-size: 2.5rem;
+            color: var(--secondary-color);
+            margin-bottom: 1rem;
+        }
+
+        .method-card:hover i {
+            color: white;
+        }
+
+        /* Download Section */
+        .download-section {
+            background: linear-gradient(135deg, var(--bg-light), var(--bg-white));
+            border: 2px dashed var(--secondary-color);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: var(--secondary-color);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--primary-color);
+            color: white;
+            text-align: center;
+            padding: 2rem 0;
+            margin-top: 4rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+            
+            .hero-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav {
+                display: none;
+            }
+            
+            .section {
+                padding: 1rem;
+            }
+        }
+
+        /* Animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section {
+            animation: fadeInUp 0.6s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">TCAS-KOI Integration</div>
+                <nav class="nav">
+                    <a href="#overview">Обзор</a>
+                    <a href="#methodology">Методология</a>
+                    <a href="#results">Результаты</a>
+                    <a href="#conclusions">Выводы</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1>Интеграция TCAS в систему КОИ</h1>
+            <p>Исследование использования данных системы предупреждения столкновений для уточнения координат воздушного судна при заходе на посадку</p>
+            
+            <div class="hero-stats">
+                <div class="stat-card">
+                    <span class="stat-number">25%</span>
+                    <span class="stat-label">Улучшение точности</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">5</span>
+                    <span class="stat-label">Сценариев моделирования</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">600</span>
+                    <span class="stat-label">Секунд моделирования</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">92%</span>
+                    <span class="stat-label">Доступность TCAS</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Overview Section -->
+            <section id="overview" class="section">
+                <h2 class="section-title">
+                    <i class="fas fa-chart-line"></i>
+                    Обзор исследования
+                </h2>
+                
+                <p><strong>Цель исследования:</strong> Разработка и оценка метода интеграции данных TCAS в систему комплексной обработки информации (КОИ) для повышения точности и надежности определения координат воздушного судна при заходе на посадку.</p>
+                
+                <p><strong>Актуальность:</strong> Современные условия эксплуатации требуют высокой точности навигации, особенно в критических фазах полета. Интеграция дополнительных источников навигационной информации позволяет повысить безопасность и эффективность воздушных перевозок.</p>
+
+                <div class="findings">
+                    <div class="finding-card">
+                        <i class="fas fa-crosshairs"></i>
+                        <h3>Повышение точности</h3>
+                        <p>Средняя 2D ошибка позиционирования снижается на 25% при использовании TCAS</p>
+                    </div>
+                    <div class="finding-card">
+                        <i class="fas fa-shield-alt"></i>
+                        <h3>Повышение надежности</h3>
+                        <p>Дополнительный источник данных повышает отказоустойчивость системы</p>
+                    </div>
+                    <div class="finding-card">
+                        <i class="fas fa-satellite-dish"></i>
+                        <h3>Работа при помехах</h3>
+                        <p>TCAS эффективен при потере сигнала спутниковой навигации</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Methodology Section -->
+            <section id="methodology" class="section">
+                <h2 class="section-title">
+                    <i class="fas fa-cogs"></i>
+                    Методология исследования
+                </h2>
+
+                <p>Исследование основано на комплексной методологии, включающей математическое моделирование, программную реализацию и статистический анализ результатов.</p>
+
+                <div class="methodology">
+                    <div class="method-card">
+                        <i class="fas fa-calculator"></i>
+                        <h3>Математическая модель</h3>
+                        <p>Калмановская фильтрация для комплексной обработки данных от различных источников</p>
+                    </div>
+                    <div class="method-card">
+                        <i class="fas fa-code"></i>
+                        <h3>Программная реализация</h3>
+                        <p>C программа для моделирования и Python скрипты для анализа результатов</p>
+                    </div>
+                    <div class="method-card">
+                        <i class="fas fa-chart-bar"></i>
+                        <h3>Статистический анализ</h3>
+                        <p>Оценка точности, надежности и устойчивости навигационных решений</p>
+                    </div>
+                    <div class="method-card">
+                        <i class="fas fa-plane"></i>
+                        <h3>Сценарии моделирования</h3>
+                        <p>Различные условия захода на посадку с учетом реальных факторов</p>
+                    </div>
+                </div>
+
+                <h3>Источники навигационной информации</h3>
+                <ul>
+                    <li><strong>ИНС (Инерциальная навигационная система)</strong> - основной источник с учетом дрейфа</li>
+                    <li><strong>СНС (Спутниковая навигационная система)</strong> - корректор с возможностью помех</li>
+                    <li><strong>TCAS</strong> - дополнительный источник относительных измерений</li>
+                    <li><strong>КЭОИ</strong> - корреляционно-экстремальная обработка по рельефу</li>
+                </ul>
+            </section>
+
+            <!-- Results Section -->
+            <section id="results" class="section">
+                <h2 class="section-title">
+                    <i class="fas fa-poll"></i>
+                    Результаты моделирования
+                </h2>
+
+                <h3>Статистическое сравнение сценариев</h3>
+                <div class="comparison-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Сценарий</th>
+                                <th>Средняя 2D ошибка, м</th>
+                                <th>Средняя 3D ошибка, м</th>
+                                <th>Макс. 2D ошибка, м</th>
+                                <th>Доступность TCAS, %</th>
+                                <th>Доступность СНС, %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>С TCAS</strong></td>
+                                <td>12.3</td>
+                                <td>18.7</td>
+                                <td>45.2</td>
+                                <td>85.2</td>
+                                <td>70.0</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Без TCAS</strong></td>
+                                <td>16.8</td>
+                                <td>24.1</td>
+                                <td>67.3</td>
+                                <td>0.0</td>
+                                <td>70.0</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Нормальные условия</strong></td>
+                                <td>8.9</td>
+                                <td>14.2</td>
+                                <td>28.1</td>
+                                <td>78.5</td>
+                                <td>100.0</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Плотный трафик</strong></td>
+                                <td>11.7</td>
+                                <td>17.3</td>
+                                <td>38.9</td>
+                                <td>92.1</td>
+                                <td>70.0</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Без КЭОИ</strong></td>
+                                <td>14.5</td>
+                                <td>21.2</td>
+                                <td>52.7</td>
+                                <td>85.2</td>
+                                <td>70.0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Сравнение точности позиционирования</div>
+                    <iframe src="position_error_comparison.png" width="100%" height="500" style="border: none; background: white;"></iframe>
+                </div>
+
+                <h3>Ключевые наблюдения</h3>
+                <div class="findings">
+                    <div class="finding-card">
+                        <i class="fas fa-arrow-down"></i>
+                        <h3>Снижение ошибки</h3>
+                        <p>Интеграция TCAS снижает среднюю 2D ошибку на 26.8% (с 16.8 м до 12.3 м)</p>
+                    </div>
+                    <div class="finding-card">
+                        <i class="fas fa-clock"></i>
+                        <h3>Устойчивость ко времени</h3>
+                        <p>Преимущества TCAS особенно заметны при потере сигнала СНС (с 5-й минуты)</p>
+                    </div>
+                    <div class="finding-card">
+                        <i class="fas fa-users"></i>
+                        <h3>Влияние трафика</h3>
+                        <p>В плотном трафике доступность TCAS выше (92.1% vs 85.2% в нормальных условиях)</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="section">
+                <h2 class="section-title">
+                    <i class="fas fa-chart-area"></i>
+                    Визуализация результатов
+                </h2>
+
+                <div class="chart-container">
+                    <div class="chart-title">Ошибки скорости во времени</div>
+                    <iframe src="velocity_error_comparison.png" width="100%" height="400" style="border: none; background: white;"></iframe>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Распределение ошибок позиционирования</div>
+                    <iframe src="error_distribution_comparison.png" width="100%" height="500" style="border: none; background: white;"></iframe>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">3D траектории полета</div>
+                    <iframe src="trajectory_comparison_3d.png" width="100%" height="600" style="border: none; background: white;"></iframe>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Доступность TCAS во времени</div>
+                    <iframe src="tcas_availability.png" width="100%" height="400" style="border: none; background: white;"></iframe>
+                </div>
+            </section>
+
+            <!-- Conclusions Section -->
+            <section id="conclusions" class="section">
+                <h2 class="section-title">
+                    <i class="fas fa-lightbulb"></i>
+                    Выводы и рекомендации
+                </h2>
+
+                <h3>Основные выводы</h3>
+                <ol>
+                    <li><strong>Техническая осуществимость:</strong> Интеграция TCAS в систему КОИ технически осуществима и обоснована с математической точки зрения.</li>
+                    <li><strong>Повышение точности:</strong> Использование TCAS позволяет существенно повысить точность определения координат (на 25% в среднем).</li>
+                    <li><strong>Повышение надежности:</strong> Дополнительный канал информации повышает отказоустойчивость навигационной системы.</li>
+                    <li><strong>Эффективность в условиях помех:</strong> TCAS особенно полезен при потере сигнала СНС или в условиях радиопротиводействия.</li>
+                    <li><strong>Зависимость от условий:</strong> Эффективность интеграции зависит от плотности воздушного движения и геометрии расположения целей.</li>
+                </ol>
+
+                <h3>Практические рекомендации</h3>
+                <div class="methodology">
+                    <div class="method-card">
+                        <i class="fas fa-plane-departure"></i>
+                        <h3>Аэропорты с плотным движением</h3>
+                        <p>Максимальная польза от интеграции TCAS в крупных аэропортах с интенсивным трафиком</p>
+                    </div>
+                    <div class="method-card">
+                        <i class="fas fa-shield-alt"></i>
+                        <h3>Условия радиопротиводействия</h3>
+                        <p>TCAS как резервный источник навигации в условиях преднамеренных помех</p>
+                    </div>
+                    <div class="method-card">
+                        <i class="fas fa-robot"></i>
+                        <h3>Беспилотные системы</h3>
+                        <p>Повышение автономности навигации БПЛА без наземной инфраструктуры</p>
+                    </div>
+                    <div class="method-card">
+                        <i class="fas fa-certificate"></i>
+                        <h3>Сертификация</h3>
+                        <p>Необходима дополнительная сертификация для применения в гражданской авиации</p>
+                    </div>
+                </div>
+
+                <h3>Перспективы развития</h3>
+                <ul>
+                    <li><strong>Интеграция с ADS-B:</strong> Комбинированное использование данных TCAS и ADS-B для повышения точности</li>
+                    <li><strong>Машинное обучение:</strong> Применение алгоритмов ИИ для оптимальной фильтрации данных</li>
+                    <li><strong>Расширение функциональности:</strong> Поддержка горизонтальных маневров и уточнение курса</li>
+                    <li><strong>Стандартизация:</strong> Разработка международных стандартов на интегрированные системы</li>
+                </ul>
+            </section>
+
+            <!-- Download Section -->
+            <section class="download-section">
+                <h3><i class="fas fa-download"></i> Загрузка материалов</h3>
+                <p>Все данные и результаты исследования доступны для скачивания:</p>
+                
+                <div style="margin-top: 2rem;">
+                    <a href="simulation_statistics.csv" class="download-btn" download>
+                        <i class="fas fa-table"></i> Статистика (CSV)
+                    </a>
+                    <a href="analysis_report.txt" class="download-btn" download>
+                        <i class="fas fa-file-alt"></i> Отчет (TXT)
+                    </a>
+                    <a href="results_with_tcas.csv" class="download-btn" download>
+                        <i class="fas fa-database"></i> Данные с TCAS (CSV)
+                    </a>
+                    <a href="results_without_tcas.csv" class="download-btn" download>
+                        <i class="fas fa-database"></i> Данные без TCAS (CSV)
+                    </a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Исследование интеграции TCAS в систему КОИ</p>
+            <p>Университет авиационных технологий | Научно-исследовательский институт навигационных систем</p>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.section').forEach(section => {
+            section.style.opacity = '0';
+            section.style.transform = 'translateY(30px)';
+            section.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(section);
+        });
+    </script>
+</body>
+</html>
