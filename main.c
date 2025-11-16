@@ -64,21 +64,12 @@ int main(int argc, char* argv[]) {
     /* ������������� ��� TCAS (��� ���������) */
     printf("\n������ ������������� ��� TCAS...\n");
 
-    /* Preserve original settings to restore later */
-    data_validity_t original_use_tcas = config.use_tcas;
-    data_validity_t original_use_koei = config.use_koei;
-    double original_sns_outage_start = config.sns_outage_start;
-    double original_sns_outage_duration = config.sns_outage_duration;
-    double original_ins_drift_rate = config.ins_drift_rate;
+    /* ��� ������������ ����������� ���������� ������ �����������:
+       - ��������������� ����� ��������� (��� SNS, ��� ����, ��� �������� ���)
+       - ���������� ������ ���������� ����� ���������� TCAS
+       ��� ������������ ����� ������ ������ ����� ������������ ���������� TCAS. */
+    config.use_tcas = DATA_INVALID;      /* ������ ���������� TCAS */
 
-    config.use_tcas = DATA_INVALID;
-    // FIXED: For proper comparison, disable SNS and KOEI in "without TCAS" mode
-    // This shows true INS-only performance without external corrections
-    config.use_koei = DATA_INVALID;  // Disable KOEI
-    config.sns_outage_start = 0.0;   // Start SNS outage immediately
-    config.sns_outage_duration = config.simulation_time;  // Full duration - no SNS corrections
-    // FIXED: Increase drift rate for "without TCAS" to show realistic INS drift accumulation
-    config.ins_drift_rate = 5000.0;  // Strong drift to highlight TCAS benefits
     num_results = simulate_approach(&config, scenario, results_without_tcas, 1000);
 
     if (num_results > 0) {
@@ -89,44 +80,6 @@ int main(int argc, char* argv[]) {
     /* ��������� ����������� */
     if (num_results > 0) {
         compare_tcas_integration(results_with_tcas, results_without_tcas, num_results);
-    }
-
-    /* Restore original settings for subsequent scenarios */
-    config.use_tcas = original_use_tcas;
-    config.use_koei = original_use_koei;
-    config.sns_outage_start = original_sns_outage_start;
-    config.sns_outage_duration = original_sns_outage_duration;
-    config.ins_drift_rate = original_ins_drift_rate;
-
-    /* �������������� �������� ��� ������������ */
-    printf("\n=========================================\n");
-    printf("�������������� �������� �������������:\n");
-    printf("=========================================\n");
-
-    /* �������� 1: ���������� ������� ��� ������ ������� */
-    printf("\n�������� 1: ���������� ������� (��� ������ ���)\n");
-    config.sns_outage_start = 0.0;
-    config.sns_outage_duration = 0.0;
-    config.use_tcas = DATA_VALID;
-
-    simulation_result_t results_normal[1000];
-    num_results = simulate_approach(&config, scenario, results_normal, 1000);
-    if (num_results > 0) {
-        save_simulation_results(results_normal, num_results, "results_normal_conditions.csv");
-        print_simulation_statistics(results_normal, num_results);
-    }
-
-    /* �������� 2: ������� ������ */
-    printf("\n�������� 2: ������� ������ (15 ��������� �����)\n");
-    config.num_traffic = 15;
-    config.sns_outage_start = 300.0;
-    config.sns_outage_duration = 180.0;
-
-    simulation_result_t results_heavy_traffic[1000];
-    num_results = simulate_approach(&config, scenario, results_heavy_traffic, 1000);
-    if (num_results > 0) {
-        save_simulation_results(results_heavy_traffic, num_results, "results_heavy_traffic.csv");
-        print_simulation_statistics(results_heavy_traffic, num_results);
     }
 
     /* �������� 3: ��� ���� */
@@ -147,15 +100,12 @@ int main(int argc, char* argv[]) {
     printf("=========================================\n");
     printf("1. ������� �������������� ������ ���������� TCAS � ������� ���\n");
     printf("2. ����������� ��������� ����������� ��������� ������������� ����������\n");
-    printf("3. ��������� ������������� ��������� ��������� ������ �� �������\n");
-    printf("4. �������� ����������, �������������� ������������ ���������� TCAS\n");
-    printf("5. ������� ����� � ������� ��� ����������� �������\n\n");
+    printf("3. �������� ����������, �������������� ������������ ���������� TCAS\n");
+    printf("4. ������� ����� � ������� ��� ����������� �������\n\n");
 
     printf("����� �����������:\n");
     printf("- results_with_tcas.csv - ���������� � ����������� TCAS\n");
     printf("- results_without_tcas.csv - ���������� ��� TCAS (��� ���������)\n");
-    printf("- results_normal_conditions.csv - ���������� �������\n");
-    printf("- results_heavy_traffic.csv - ������� ������\n");
     printf("- results_no_koei.csv - ��� ������������� ����\n\n");
 
     printf("��� ������������ ����������� ����������� Python ������:\n");

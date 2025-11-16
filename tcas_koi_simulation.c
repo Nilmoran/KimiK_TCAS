@@ -625,34 +625,38 @@ uint32_t simulate_approach(const simulation_config_t* config, approach_scenario_
         sns_data_t sns_data;
         tcas_data_t tcas_data;
         koei_data_t koei_data;
-
+        geo_coordinates_t estimated_position;
+        
         generate_ins_data(&ins_data, &true_position, &true_velocity,
             config->ins_drift_rate, time);
         generate_sns_data(&sns_data, &true_position, &true_velocity,
             1.5, 2.0, sns_available, time);
-
+        
+        /* ������������ ��������� ������� (������� ����������� �������) */
+        estimated_position.latitude = kalman_state.state[0];
+        estimated_position.longitude = kalman_state.state[1];
+        estimated_position.altitude = kalman_state.state[2];
+        
+        /* ВАЖНО: TCAS должен "видеть" текущую оценку положения,
+           а не истинное положение. Тогда поправки TCAS зависят от
+           реальной ошибки фильтра, а не от идеальной траектории. */
         if (config->use_tcas == DATA_VALID) {
-            generate_tcas_data(&tcas_data, &true_position, traffic, num_traffic, time);
+            generate_tcas_data(&tcas_data, &estimated_position, traffic, num_traffic, time);
         }
         else {
             tcas_data.validity = DATA_INVALID;
             tcas_data.num_targets = 0;
         }
-
+        
         if (config->use_koei == DATA_VALID) {
             generate_koei_data(&koei_data, &true_position, 100.0, time);
         }
         else {
             koei_data.validity = DATA_INVALID;
         }
-
+        
         /* ��������� ������ ��������� */
         measurement_vector_t measurement;
-        geo_coordinates_t estimated_position;
-        estimated_position.latitude = kalman_state.state[0];
-        estimated_position.longitude = kalman_state.state[1];
-        estimated_position.altitude = kalman_state.state[2];
-
         form_measurement_vector(&measurement, &ins_data, &sns_data, &tcas_data, &koei_data,
             &estimated_position);
 

@@ -199,6 +199,162 @@ def plot_error_distribution(df_list, labels, title):
     plt.tight_layout()
     return fig
 
+def plot_cumulative_mean_error(df_list, labels, title, window=60):
+    """Скользящее математическое ожидание 2D ошибки + глобальное среднее
+
+    window — горизонт усреднения в отсчётах (при шаге 1 c ~ window секунд).
+    """
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    for df, label in zip(df_list, labels):
+        if df is not None and len(df) > 0:
+            # Сортируем по времени на всякий случай
+            df_sorted = df.sort_values('timestamp')
+            errors = df_sorted['error_2d']
+
+            # Скользящее мат. ожидание (локальное ожидание во временном окне)
+            rolling_mean = errors.rolling(window=window, min_periods=1).mean()
+            ax.plot(df_sorted['timestamp'], rolling_mean,
+                    label=f'{label} (скользящее МО)', linewidth=2, alpha=0.9)
+
+            # Глобальное среднее как горизонтальная линия
+            global_mean = errors.mean()
+            ax.hlines(global_mean,
+                      df_sorted['timestamp'].min(),
+                      df_sorted['timestamp'].max(),
+                      linestyles='dashed', linewidth=1.5, alpha=0.7)
+
+    ax.set_xlabel('Время, с')
+    ax.set_ylabel('Математическое ожидание 2D ошибки, м')
+    ax.set_title(f'{title} - скользящее математическое ожидание 2D ошибки')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    plt.tight_layout()
+    return fig
+
+def plot_error_stats(df_list, labels, title):
+    """Графики матожидания и СКО ошибок координат (2D/3D) и скорости"""
+    fig, axes = plt.subplots(2, 3, figsize=(18, 8), sharex='col')
+    
+    metrics = [
+        ('error_2d', '2D ошибка, м'),
+        ('error_3d', '3D ошибка, м'),
+        ('velocity_error', 'Ошибка скорости, м/с')
+    ]
+    
+    for col, (column, ylabel) in enumerate(metrics):
+        ax_mean = axes[0, col]
+        ax_std = axes[1, col]
+        
+        for df, label in zip(df_list, labels):
+            if df is not None and len(df) > 0 and column in df.columns:
+                df_sorted = df.sort_values('timestamp')
+                mean_series = df_sorted[column].expanding().mean()
+                std_series = df_sorted[column].expanding().std()
+                
+                ax_mean.plot(df_sorted['timestamp'], mean_series,
+                             label=label, linewidth=2, alpha=0.9)
+                ax_std.plot(df_sorted['timestamp'], std_series,
+                            label=label, linewidth=2, alpha=0.9)
+        
+        ax_mean.set_ylabel(f'Мат. ожидание\n({ylabel})')
+        ax_std.set_ylabel(f'СКО\n({ylabel})')
+        ax_std.set_xlabel('Время, с')
+        ax_mean.grid(True, alpha=0.3)
+        ax_std.grid(True, alpha=0.3)
+    
+    axes[0, 0].set_title(f'{title} - матожидание ошибок')
+    axes[1, 0].set_title(f'{title} - СКО ошибок')
+    
+    # Легенду выносим в верхний левый подграфик
+    handles, legend_labels = axes[0, 0].get_legend_handles_labels()
+    if handles:
+        axes[0, 0].legend(handles, legend_labels)
+    
+    plt.tight_layout()
+    return fig
+
+def plot_position_errors_per_mode(data_dict, title_prefix):
+    """Отдельные графики 2D/3D ошибок позиционирования для каждого режима"""
+    filename_suffix = {
+        'С TCAS': 'with_tcas',
+        'Без TCAS': 'without_tcas'
+    }
+    
+    for label, df in data_dict.items():
+        if df is None or len(df) == 0:
+            continue
+        
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+        
+        df_sorted = df.sort_values('timestamp')
+        ax1.plot(df_sorted['timestamp'], df_sorted['error_2d'],
+                 label='2D ошибка', linewidth=2, alpha=0.9)
+        ax2.plot(df_sorted['timestamp'], df_sorted['error_3d'],
+                 label='3D ошибка', linewidth=2, alpha=0.9, color='orange')
+        
+        ax1.set_xlabel('Время, с')
+        ax1.set_ylabel('2D ошибка, м')
+        ax1.set_title(f'{title_prefix} - {label} (2D)')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend()
+        
+        ax2.set_xlabel('Время, с')
+        ax2.set_ylabel('3D ошибка, м')
+        ax2.set_title(f'{title_prefix} - {label} (3D)')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend()
+        
+        plt.tight_layout()
+        
+        suffix = filename_suffix.get(label, 'mode')
+        fig.savefig(f'position_errors_{suffix}.png', dpi=300, bbox_inches='tight')
+        plt.close(fig)
+
+def plot_position_component_errors(df_list, labels, title):
+    """Декомпозиция 2D/3D ошибки на компоненты: широта, долгота, высота"""
+    EARTH_RADIUS = 6371000.0  # м
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+    
+    component_names = [
+        ('lat_error_m', 'Ошибка по широте, м'),
+        ('lon_error_m', 'Ошибка по долготе, м'),
+        ('alt_error_m', 'Ошибка по высоте, м'),
+    ]
+    
+    for df, label in zip(df_list, labels):
+        if df is None or len(df) == 0:
+            continue
+        
+        df_sorted = df.sort_values('timestamp').copy()
+        
+        # Вычисляем ошибки в метрах
+        lat_true_rad = np.deg2rad(df_sorted['true_lat'])
+        dlat_rad = np.deg2rad(df_sorted['est_lat'] - df_sorted['true_lat'])
+        dlon_rad = np.deg2rad(df_sorted['est_lon'] - df_sorted['true_lon'])
+        
+        df_sorted['lat_error_m'] = dlat_rad * EARTH_RADIUS
+        df_sorted['lon_error_m'] = dlon_rad * EARTH_RADIUS * np.cos(lat_true_rad)
+        df_sorted['alt_error_m'] = df_sorted['est_alt'] - df_sorted['true_alt']
+        
+        for ax, (col, ylabel) in zip(axes, component_names):
+            ax.plot(df_sorted['timestamp'], df_sorted[col],
+                    label=label, linewidth=2, alpha=0.9)
+            ax.set_ylabel(ylabel)
+            ax.grid(True, alpha=0.3)
+    
+    axes[-1].set_xlabel('Время, с')
+    axes[0].set_title(f'{title} - компоненты ошибки (широта/долгота/высота)')
+    
+    # Общая легенда
+    handles, legend_labels = axes[0].get_legend_handles_labels()
+    if handles:
+        axes[0].legend(handles, legend_labels)
+    
+    plt.tight_layout()
+    return fig
+
 def main():
     """Основная функция анализа результатов"""
     import os
@@ -209,12 +365,12 @@ def main():
     
     # Загрузка данных
     print("Загрузка результатов моделирования...")
+    # Оставляем только те сценарии, которые реально используются:
+    # - С TCAS
+    # - Без TCAS
     files = {
         'С TCAS': 'results_with_tcas.csv',
-        'Без TCAS': 'results_without_tcas.csv',
-        'Нормальные условия': 'results_normal_conditions.csv',
-        'Плотный трафик': 'results_heavy_traffic.csv',
-        'Без КЭОИ': 'results_no_koei.csv'
+        'Без TCAS': 'results_without_tcas.csv'
     }
     
     data = {}
@@ -286,21 +442,51 @@ def main():
         fig3.savefig('error_distribution_comparison.png', dpi=300, bbox_inches='tight')
         plt.close(fig3)
     
-    # 2. Анализ всех сценариев
-    all_data = list(data.values())
-    all_labels = list(data.keys())
+    # 2. Дополнительный график: накопленное матожидание 2D ошибки
+    if 'С TCAS' in data and 'Без TCAS' in data:
+        fig4 = plot_cumulative_mean_error(
+            [data['С TCAS'], data['Без TCAS']],
+            ['С TCAS', 'Без TCAS'],
+            'Сравнение интеграции TCAS'
+        )
+        fig4.savefig('cumulative_mean_2d_error_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close(fig4)
+        
+        # 2b. Матожидание и СКО ошибок координат и скорости
+        fig4b = plot_error_stats(
+            [data['С TCAS'], data['Без TCAS']],
+            ['С TCAS', 'Без TCAS'],
+            'Сравнение интеграции TCAS'
+        )
+        fig4b.savefig('error_stats_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close(fig4b)
     
-    fig4 = plot_position_errors(all_data, all_labels, 'Все сценарии')
-    fig4.savefig('all_scenarios_position_errors.png', dpi=300, bbox_inches='tight')
-    plt.close(fig4)
-    
-    # 3. 3D траектории
+    # 3. 3D траектории (по основным двум сценариям, если нужно визуализировать траекторию)
+    all_data = []
+    all_labels = []
+    for key in ['С TCAS', 'Без TCAS']:
+        if key in data:
+            all_data.append(data[key])
+            all_labels.append(key)
     if len(all_data) >= 2:
-        fig5 = plot_trajectory_3d(all_data[:3], all_labels[:3], 'Сравнение траекторий')
+        fig5 = plot_trajectory_3d(all_data, all_labels, 'Сравнение траекторий (основные режимы)')
         fig5.savefig('trajectory_comparison_3d.png', dpi=300, bbox_inches='tight')
         plt.close(fig5)
     
-    # 4. Доступность TCAS
+    # 4. Отдельные графики ошибок позиционирования по режимам
+    plot_position_errors_per_mode(data, 'Ошибки позиционирования по режимам')
+    
+    # 5. Декомпозиция ошибки позиционирования на компоненты (широта/долгота/высота)
+    if 'С TCAS' in data and 'Без TCAS' in data:
+        fig7 = plot_position_component_errors(
+            [data['С TCAS'], data['Без TCAS']],
+            ['С TCAS', 'Без TCAS'],
+            'Сравнение интеграции TCAS'
+        )
+        fig7.savefig('position_error_components_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close(fig7)
+    
+    # 6. Доступность TCAS
     if 'С TCAS' in data:
         fig6 = plot_tcas_availability(data['С TCAS'], 'Доступность TCAS')
         fig6.savefig('tcas_availability.png', dpi=300, bbox_inches='tight')
