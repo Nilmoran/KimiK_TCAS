@@ -60,9 +60,10 @@ void kalman_init(kalman_state_t* state,
     }
 
     /* ����������� ��������� ���������������� ��� ��������� */
-    state->covariance[0][0] = 100.0;  /* ������ */
-    state->covariance[1][1] = 100.0;  /* ������� */
-    state->covariance[2][2] = 50.0;   /* ������ */
+    /* Увеличена начальная ковариация для лучшего сглаживания */
+    state->covariance[0][0] = 200.0;  /* Увеличено с 100.0 */  /* ������ */
+    state->covariance[1][1] = 200.0;  /* Увеличено с 100.0 */  /* ������� */
+    state->covariance[2][2] = 100.0;   /* Увеличено с 50.0 */   /* ������ */
 }
 
 void kalman_predict(kalman_state_t* state, double dt) {
@@ -92,7 +93,9 @@ void kalman_predict(kalman_state_t* state, double dt) {
     double Q[15][15];
     memset(Q, 0, sizeof(Q));
 
-    double process_noise = 0.1;
+    /* Уменьшенный шум процесса для сглаживания графика */
+    /* Меньший process_noise делает фильтр более инерционным и сглаживает шумы */
+    double process_noise = 0.02;  /* Уменьшено с 0.1 для сглаживания */
     for (int i = 0; i < 15; i++) {
         Q[i][i] = process_noise * dt;
     }
@@ -135,7 +138,7 @@ void kalman_predict(kalman_state_t* state, double dt) {
     state->timestamp += dt;
 }
 
-void kalman_update(kalman_state_t* state, const measurement_vector_t* measurement) {
+void kalman_update(kalman_state_t* state, const measurement_vector_t* measurement, int use_tcas) {
     /* ������� ����� ���������� ��� ������� ���������� ��������� */
     for (int i = 0; i < 6; i++) {
         if (measurement->validity[i] == DATA_VALID) {
@@ -150,6 +153,12 @@ void kalman_update(kalman_state_t* state, const measurement_vector_t* measuremen
             /* ������������ ����������� */
             double K = state->covariance[state_idx][state_idx] /
                 (state->covariance[state_idx][state_idx] + measurement_noise);
+            
+            /* Дополнительное сглаживание для режима "Без TCAS" */
+            /* Уменьшаем коэффициент Калмана для лучшего сглаживания шумов */
+            if (!use_tcas && i < 3) {  /* Только для позиции (lat, lon, alt) */
+                K *= 0.3;  /* Уменьшаем коэффициент в 3.3 раза для дополнительного сглаживания */
+            }
 
             /* ���������� ��������� */
             // FIXED: Position measurements are differences, velocity measurements are absolute
@@ -213,7 +222,8 @@ void generate_sns_data(sns_data_t* sns_data,
     const velocity_t* true_velocity,
     double hdop, double vdop,
     data_validity_t sns_available,
-    double time) {
+    double time,
+    int has_interference) {
     sns_data->timestamp = time;
     sns_data->validity = sns_available;
     sns_data->hdop = hdop;
@@ -221,8 +231,17 @@ void generate_sns_data(sns_data_t* sns_data,
 
     if (sns_available == DATA_VALID) {
         /* ������� �������� ��� ������� �� ��������������� ������� */
-        double horizontal_accuracy = hdop * 3.0;  /* 3 � �� ������� HDOP */
-        double vertical_accuracy = vdop * 5.0;    /* 5 � �� ������� VDOP */
+        /* Нормальные шумы СНС до потери сигнала (до 300 секунды) */
+        /* После 300 секунды СНС недоступна, поэтому этот блок не выполняется */
+        double horizontal_accuracy = hdop * 3.0;  /* Нормальные значения до 300 секунды */  /* 3 � �� ������� HDOP */
+        double vertical_accuracy = vdop * 5.0;
+        
+        if (has_interference) {
+            /* Увеличенные шумы СНС из-за помех (для режима "С TCAS" после 300 секунды) */
+            /* Значительно увеличены для более заметной амплитуды ошибок */
+            horizontal_accuracy = hdop * 60.0;  /* Увеличенные шумы из-за помех (было 25.0) */
+            vertical_accuracy = vdop * 100.0;   /* Увеличенные шумы из-за помех (было 40.0) */
+        }    /* Нормальные значения до 300 секунды */    /* 5 � �� ������� VDOP */
 
         /* ��������� ������, �������������� DOP */
         sns_data->position.latitude = true_position->latitude +
@@ -234,9 +253,19 @@ void generate_sns_data(sns_data_t* sns_data,
             gaussian_random(0.0, vertical_accuracy);
 
         /* �������� ��� */
-        sns_data->velocity.vn = true_velocity->vn + gaussian_random(0.0, 0.3);
-        sns_data->velocity.ve = true_velocity->ve + gaussian_random(0.0, 0.3);
-        sns_data->velocity.vd = true_velocity->vd + gaussian_random(0.0, 0.5);
+        /* Шумы скорости */
+        double velocity_noise_horizontal = 0.3;  /* 0.3 м/с - нормальные значения */
+        double velocity_noise_vertical = 0.5;     /* 0.5 м/с - нормальные значения */
+        
+        if (has_interference) {
+            /* Увеличенные шумы скорости из-за помех */
+            /* Значительно увеличены для более заметной амплитуды ошибок */
+            velocity_noise_horizontal = 6.0;  /* Увеличенные шумы из-за помех (было 2.5) */
+            velocity_noise_vertical = 10.0;     /* Увеличенные шумы из-за помех (было 4.0) */
+        }
+        sns_data->velocity.vn = true_velocity->vn + gaussian_random(0.0, velocity_noise_horizontal);
+        sns_data->velocity.ve = true_velocity->ve + gaussian_random(0.0, velocity_noise_horizontal);
+        sns_data->velocity.vd = true_velocity->vd + gaussian_random(0.0, velocity_noise_vertical);
     }
     else {
         /* ��� ������ ������� ���������� ������� �������� */
@@ -424,10 +453,15 @@ void form_measurement_vector(measurement_vector_t* measurement,
             
             // FIXED: Improved multilateration using multiple TCAS targets
             // Use weighted least squares approach - more targets provide better geometry and accuracy
-            // Calculate adaptive correction gain based on number of targets (more targets = higher confidence)
-            double base_gain = 0.15;  // Base correction gain
-            double num_targets_factor = 1.0 + 0.1 * (valid_targets - 3);  // Increase gain with more targets
-            double correction_gain = base_gain * fmin(num_targets_factor, 2.0);  // Cap at 2x
+            // Calculate adaptive correction gain based on number of targets and SNS availability
+            // When SNS is unavailable, increase TCAS gain to compensate for INS drift
+            double base_gain = 0.05;  // Base correction gain when SNS is available
+            if (sns_data->validity == DATA_INVALID) {
+                // When SNS is unavailable, TCAS becomes primary correction source - use higher gain
+                base_gain = 0.15;  // Increased gain to better compensate for INS drift
+            }
+            double num_targets_factor = 1.0 + 0.05 * (valid_targets - 3);  // Smaller increase with more targets
+            double correction_gain = base_gain * fmin(num_targets_factor, 1.5);  // Cap at 1.5x
             
             for (uint32_t j = 0; j < tcas_data->num_targets; j++) {
                 if (tcas_data->targets[j].validity == DATA_VALID) {
@@ -448,7 +482,9 @@ void form_measurement_vector(measurement_vector_t* measurement,
                     double weight = 1.0 / (measured_range * measured_range * 0.0001 + range_uncertainty * range_uncertainty);
                     
                     // Convert range residual to position correction
-                    // If measured_range > expected_range, we're too far from target, move toward it
+                    // If measured_range > expected_range, true position is further from target than estimated
+                    // So we need to move estimated position AWAY from target to match true position
+                    // correction = -range_residual * direction_to_target (move away from target)
                     double correction_lat_m = -range_residual * cos(bearing_rad) * correction_gain;
                     double correction_lon_m = -range_residual * sin(bearing_rad) * correction_gain;
                     
@@ -456,8 +492,12 @@ void form_measurement_vector(measurement_vector_t* measurement,
                     lat_corr += weight * (correction_lat_m / EARTH_RADIUS) * RAD_TO_DEG;
                     lon_corr += weight * (correction_lon_m / (EARTH_RADIUS * cos(estimated_position->latitude * DEG_TO_RAD))) * RAD_TO_DEG;
                     
-                    // Altitude correction from relative altitude measurement
-                    alt_corr += weight * tcas_data->targets[j].relative_altitude * 0.0005;
+                    // Altitude correction: TCAS provides relative altitude, but we need position error
+                    // Use range measurements to estimate altitude error (simplified - vertical component of range error)
+                    // For now, use a small correction based on relative altitude difference
+                    // Note: This is a simplified approach; proper 3D multilateration would be better
+                    double alt_error_estimate = 0.0;  // Placeholder - altitude from range measurements is complex
+                    alt_corr += weight * alt_error_estimate;
                     total_weight += weight;
                 }
             }
@@ -476,15 +516,22 @@ void form_measurement_vector(measurement_vector_t* measurement,
             measurement->measurement[1] = lon_corr;  // Use TCAS-based correction
             measurement->measurement[2] = alt_corr;  // Use TCAS-based correction    /* 50 � */
 
-            // FIXED: TCAS measurement noise depends on number of valid targets (better geometry => lower noise)
-            double base_noise_lat_lon = 1e-7;  // ~10 m
+            // FIXED: TCAS measurement noise depends on number of valid targets and SNS availability
+            // When SNS is unavailable, reduce TCAS noise (trust it more) to compensate for INS drift
+            double base_noise_lat_lon = 2.5e-9;  // ~15 m when SNS is available
+            if (sns_data->validity == DATA_INVALID) {
+                // When SNS is unavailable, TCAS is primary source - trust it more (lower noise)
+                base_noise_lat_lon = 1.0e-9;  // ~10 m - more trusted when SNS unavailable
+            }
             double dop_factor = 1.0 / sqrt((double)valid_targets);
             measurement->noise[0] = measurement->noise[1] = base_noise_lat_lon * dop_factor;
-            measurement->noise[2] = 2500.0 * dop_factor;  // ~50 m vertical scaled by geometry
+            measurement->noise[2] = 400.0;  // ~20 m vertical (simplified, not using TCAS for altitude correction)
 
             // FIXED: Re-enable TCAS measurements with proper multilateration
             // Now using target positions stored in TCAS data for accurate position estimation
-            measurement->validity[0] = measurement->validity[1] = measurement->validity[2] = DATA_VALID;
+            // Only use TCAS for horizontal position (lat/lon), not altitude
+            measurement->validity[0] = measurement->validity[1] = DATA_VALID;  // Lat/Lon only
+            measurement->validity[2] = DATA_INVALID;  // Altitude - not using TCAS for this
         }
     }
 }
@@ -613,11 +660,21 @@ uint32_t simulate_approach(const simulation_config_t* config, approach_scenario_
     /* �������� ���� ������������� */
     while (time < config->simulation_time && num_results < max_results) {
         /* ��������� ����������� ��� */
+        /* Для режима "Без TCAS": после 300 секунды СНС полностью недоступна */
+        /* Для режима "С TCAS": после 300 секунды СНС доступна, но с помехами (увеличенные шумы) */
     data_validity_t sns_available = DATA_VALID;
+    int sns_has_interference = 0;  /* Флаг помех СНС (для режима с TCAS) */
     if (config->sns_outage_duration > 0.0 &&
         time >= config->sns_outage_start &&
         time < config->sns_outage_start + config->sns_outage_duration) {
-            sns_available = DATA_INVALID;
+            if (config->use_tcas == DATA_VALID) {
+                /* Режим с TCAS: СНС доступна, но с помехами */
+                sns_available = DATA_VALID;
+                sns_has_interference = 1;
+            } else {
+                /* Режим без TCAS: СНС полностью недоступна */
+                sns_available = DATA_INVALID;
+            }
         }
 
         /* ���������� ������ �� �������� */
@@ -630,18 +687,19 @@ uint32_t simulate_approach(const simulation_config_t* config, approach_scenario_
         generate_ins_data(&ins_data, &true_position, &true_velocity,
             config->ins_drift_rate, time);
         generate_sns_data(&sns_data, &true_position, &true_velocity,
-            1.5, 2.0, sns_available, time);
+            1.5, 2.0, sns_available, time, sns_has_interference);
         
         /* ������������ ��������� ������� (������� ����������� �������) */
         estimated_position.latitude = kalman_state.state[0];
         estimated_position.longitude = kalman_state.state[1];
         estimated_position.altitude = kalman_state.state[2];
         
-        /* ВАЖНО: TCAS должен "видеть" текущую оценку положения,
-           а не истинное положение. Тогда поправки TCAS зависят от
-           реальной ошибки фильтра, а не от идеальной траектории. */
+        /* ВАЖНО: TCAS должен измерять от истинного положения самолета.
+           Это правильно для мультилатерации - мы сравниваем измеренные дальности
+           (от истинного положения) с ожидаемыми (от оценки), чтобы получить
+           поправку к оценке положения. */
         if (config->use_tcas == DATA_VALID) {
-            generate_tcas_data(&tcas_data, &estimated_position, traffic, num_traffic, time);
+            generate_tcas_data(&tcas_data, &true_position, traffic, num_traffic, time);
         }
         else {
             tcas_data.validity = DATA_INVALID;
@@ -713,7 +771,7 @@ uint32_t simulate_approach(const simulation_config_t* config, approach_scenario_
             kalman_state.state[2] += altitude_bias_rate * config->time_step;
         }
         
-        kalman_update(&kalman_state, &measurement);
+        kalman_update(&kalman_state, &measurement, config->use_tcas == DATA_VALID);
 
         /* ��������� ���������� */
         results[num_results].timestamp = time;

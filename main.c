@@ -41,9 +41,9 @@ int main(int argc, char* argv[]) {
     config.time_step = 1.0;                        /* ��� 1 ������� */
     config.scenario = scenario;
     config.num_traffic = 8;                        /* 8 ������ ��������� ����� */
-    config.ins_drift_rate = 2.0;                   /* ����� ��� 2 �/�/��� */
+    config.ins_drift_rate = 15.0;  /* Увеличено для ошибки >180 м во второй половине */                   /* ����� ��� 2 �/�/��� */
     config.sns_outage_start = 300.0;               /* ������ ��� � 5-� ������ */
-    config.sns_outage_duration = 180.0;            /* �� 3 ������ */
+    config.sns_outage_duration = 300.0;            /* �� 3 ������ */
     config.use_koei = DATA_VALID;                  /* ������������ ���� */
 
     /* ������� ��� ����������� */

@@ -1,0 +1,22 @@
+﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(534,5): warning MSB8028: промежуточный каталог (x64\Debug\) содержит файлы, которые используются совместно с другим проектом (KimiK_TCAS.vcxproj).  Это может привести к ошибкам очистки и перестроения.
+  main.c
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(14,31): warning C4081: требуется "newline"; обнаружен ";"
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(20,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(21,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(29,27): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(55,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(65,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(86,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(99,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(101,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(102,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(103,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(104,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(106,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(107,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(108,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(109,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\main.c(111,12): warning C4566: символ, представленный универсальным именем символа "\uFFFD", невозможно представить в текущей кодовой странице (1251)
+  tcas_koi_simulation.c
+  Создание кода...
+  KimiK2_TCAS.vcxproj -> C:\VSC Projects\KimiK_TCAS\KimiK_TCAS\x64\Debug\KimiK2_TCAS.exe
